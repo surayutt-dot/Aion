@@ -1,5 +1,5 @@
 // AION EV Tracker - Service Worker
-const CACHE_NAME = 'aion-ev-v3';
+const CACHE_NAME = 'aion-ev-v5';
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
