@@ -1,0 +1,680 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, viewport-fit=cover">
+  <title>AION EV - บันทึกค่าชาร์จและคำนวณอัตราสิ้นเปลือง</title>
+  <meta name="theme-color" content="#ffffff">
+  <meta name="description" content="แอปบันทึกค่าชาร์จรถไฟฟ้า AION EV สีขาว ทั้งไฟบ้านและสถานีสาธารณะ พร้อมคำนวณอัตราสิ้นเปลือง">
+  
+  <!-- App Icons & PWA Manifest -->
+  <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
+  <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+  <link rel="icon" type="image/png" sizes="64x64" href="favicon.png">
+  <link rel="manifest" href="manifest.json">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="AION EV">
+  <meta name="mobile-web-app-capable" content="yes">
+  
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#ecfeff',
+              100: '#cffafe',
+              200: '#a5f3fc',
+              500: '#06b6d4',
+              600: '#0891b2',
+              700: '#0e7490',
+              800: '#155e75',
+              dark: '#083344'
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700;800&display=swap');
+    
+    html {
+      font-size: 16px;
+      -webkit-text-size-adjust: 100%;
+    }
+    * {
+      font-family: 'Prompt', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      -webkit-tap-highlight-color: transparent;
+      box-sizing: border-box;
+    }
+    body {
+      background-color: #f8fafc;
+      color: #0f172a;
+    }
+    .clean-card {
+      background: #ffffff;
+      border: 1px solid #e2e8f0;
+      box-shadow: 0 2px 6px 0 rgba(0, 0, 0, 0.04);
+    }
+    input[type=number]::-webkit-inner-spin-button, 
+    input[type=number]::-webkit-outer-spin-button { 
+      -webkit-appearance: none; 
+      margin: 0; 
+    }
+    input[type=number] {
+      -moz-appearance: textfield;
+    }
+    .tab-active {
+      background-color: #0891b2 !important;
+      color: #ffffff !important;
+      box-shadow: 0 4px 10px rgba(8, 145, 178, 0.25);
+    }
+    .tab-inactive {
+      background-color: #f1f5f9;
+      color: #475569;
+    }
+  </style>
+</head>
+<body class="min-h-screen pb-20 selection:bg-cyan-600 selection:text-white">
+
+  <!-- Header -->
+  <header class="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200 shadow-sm">
+    <div class="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between">
+      
+      <!-- Logo & Title -->
+      <div class="flex items-center gap-3">
+        <div class="w-13 h-13 sm:w-14 sm:h-14 rounded-2xl border-2 border-cyan-100 overflow-hidden shadow-sm shrink-0 bg-white p-0.5">
+          <img src="car.jpg" alt="AION EV White" class="w-full h-full object-cover rounded-xl">
+        </div>
+        <div>
+          <div class="flex items-center gap-2">
+            <h1 class="font-extrabold text-xl sm:text-2xl leading-tight text-slate-900 tracking-tight">
+              AION <span class="text-cyan-600">EV</span>
+            </h1>
+            <span class="text-xs px-2.5 py-0.5 rounded-full bg-cyan-100 text-cyan-800 font-bold border border-cyan-200">
+              White Edition
+            </span>
+          </div>
+          <p class="text-sm font-medium text-slate-500">บันทึกค่าชาร์จไฟบ้าน & สถานี</p>
+        </div>
+      </div>
+
+      <!-- Action buttons -->
+      <div class="flex items-center gap-2">
+        <button id="btnPwaHowTo" title="วิธีติดตั้งลงมือถือ" class="px-3 py-2 text-sm font-semibold text-cyan-700 bg-cyan-50 hover:bg-cyan-100 rounded-xl border border-cyan-200 flex items-center gap-1.5 transition-colors">
+          <i data-lucide="smartphone" class="w-4 h-4"></i>
+          <span class="hidden sm:inline">ลงมือถือ</span>
+        </button>
+        <button id="btnExportCSV" title="ดาวน์โหลด Excel/CSV" class="p-2.5 text-slate-700 hover:text-slate-900 hover:bg-slate-100 rounded-xl transition-colors border border-slate-200 bg-white">
+          <i data-lucide="download" class="w-5 h-5"></i>
+        </button>
+        <button id="btnOpenSettings" title="การตั้งค่า & ข้อมูล" class="p-2.5 text-slate-700 hover:text-slate-900 hover:bg-slate-100 rounded-xl transition-colors border border-slate-200 bg-white">
+          <i data-lucide="settings" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+    </div>
+  </header>
+
+  <main class="max-w-4xl mx-auto px-4 pt-4 space-y-5">
+
+    <!-- Car Banner Card -->
+    <section class="clean-card rounded-3xl p-4 sm:p-5 bg-gradient-to-br from-white via-cyan-50/40 to-slate-50 border border-cyan-100 flex flex-col sm:flex-row items-center justify-between gap-4">
+      <div class="flex items-center gap-4 w-full sm:w-auto">
+        <div class="w-20 h-16 sm:w-28 sm:h-20 rounded-2xl bg-white border border-cyan-200 overflow-hidden shadow-xs shrink-0 flex items-center justify-center p-1">
+          <img src="car.jpg" alt="AION EV White" class="w-full h-full object-cover rounded-xl">
+        </div>
+        <div>
+          <div class="flex items-center gap-2">
+            <span class="px-2.5 py-0.5 rounded-lg bg-emerald-100 text-emerald-800 text-xs font-bold">100% Electric</span>
+            <span class="text-xs text-slate-500 font-medium">สีขาวมุก (Pure White)</span>
+          </div>
+          <h2 class="text-lg sm:text-xl font-bold text-slate-900 mt-1">GAC AION EV</h2>
+          <p class="text-sm text-slate-600">รองรับบันทึกไฟบ้าน TOU / ชาร์จข้างนอก / คิดอัตราสิ้นเปลืองอัตโนมัติ</p>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-2 w-full sm:w-auto justify-end border-t sm:border-t-0 pt-2 sm:pt-0 border-slate-200">
+        <button id="btnQuickHomeCharge" class="flex-1 sm:flex-none px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-sm rounded-xl shadow-sm transition-all flex items-center justify-center gap-2">
+          <i data-lucide="home" class="w-4 h-4"></i> ชาร์จบ้าน
+        </button>
+        <button id="btnQuickPublicCharge" class="flex-1 sm:flex-none px-4 py-2.5 bg-cyan-600 hover:bg-cyan-700 text-white font-bold text-sm rounded-xl shadow-sm transition-all flex items-center justify-center gap-2">
+          <i data-lucide="zap" class="w-4 h-4"></i> ชาร์จสถานี
+        </button>
+      </div>
+    </section>
+
+    <!-- PWA Install Banner -->
+    <div id="pwaInstallBanner" class="hidden clean-card rounded-2xl p-4 bg-gradient-to-r from-cyan-500 to-teal-600 text-white shadow-md flex items-center justify-between gap-3">
+      <div class="flex items-center gap-3">
+        <div class="w-12 h-12 rounded-xl bg-white/20 backdrop-blur-sm border border-white/30 flex items-center justify-center shrink-0">
+          <i data-lucide="smartphone" class="w-6 h-6 text-white"></i>
+        </div>
+        <div>
+          <p class="text-base font-bold leading-tight">ติดตั้งแอป AION EV ลงบนหน้าจอมือถือ</p>
+          <p class="text-sm text-cyan-100">เปิดใช้งานได้ทันที มีไอคอนรูปรถสีขาวแบบเต็มจอ</p>
+        </div>
+      </div>
+      <button id="btnPwaInstall" class="px-4 py-2.5 text-sm font-bold text-cyan-900 bg-white hover:bg-cyan-50 rounded-xl shadow-sm shrink-0 transition-transform active:scale-95 flex items-center gap-1.5">
+        <i data-lucide="download" class="w-4 h-4"></i> ติดตั้งแอป
+      </button>
+    </div>
+
+    <!-- Overview Stats Cards (Large Text) -->
+    <section class="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+      
+      <!-- Total Cost -->
+      <div class="clean-card rounded-2xl p-4 sm:p-5 relative overflow-hidden bg-white">
+        <div class="flex items-center justify-between text-slate-500">
+          <span class="text-sm font-semibold flex items-center gap-1.5 text-cyan-700">
+            <i data-lucide="wallet" class="w-4 h-4"></i> ค่าชาร์จรวม
+          </span>
+          <span class="text-xs px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 font-medium">ทั้งหมด</span>
+        </div>
+        <p class="text-3xl sm:text-4xl font-extrabold mt-2 text-slate-900 tracking-tight">
+          <span id="statTotalCost">0</span> <span class="text-base text-cyan-600 font-bold">฿</span>
+        </p>
+        <div class="mt-2.5 pt-2 border-t border-slate-100 space-y-0.5 text-xs text-slate-600">
+          <div class="flex justify-between">
+            <span class="flex items-center gap-1 text-emerald-700 font-medium">🏠 ไฟบ้าน:</span>
+            <span id="statHomeCostSummary" class="font-bold text-slate-800">0 ฿ (0 ครั้ง)</span>
+          </div>
+          <div class="flex justify-between">
+            <span class="flex items-center gap-1 text-cyan-700 font-medium">⚡ สถานี:</span>
+            <span id="statPublicCostSummary" class="font-bold text-slate-800">0 ฿ (0 ครั้ง)</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Month Cost -->
+      <div class="clean-card rounded-2xl p-4 sm:p-5 relative overflow-hidden bg-white">
+        <div class="flex items-center justify-between text-slate-500">
+          <span class="text-sm font-semibold flex items-center gap-1.5 text-emerald-700">
+            <i data-lucide="calendar" class="w-4 h-4"></i> เดือนนี้
+          </span>
+          <span class="text-xs px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 font-medium" id="statCurrentMonthLabel">-</span>
+        </div>
+        <p class="text-3xl sm:text-4xl font-extrabold mt-2 text-slate-900 tracking-tight">
+          <span id="statMonthCost">0</span> <span class="text-base text-emerald-600 font-bold">฿</span>
+        </p>
+        <p class="text-sm text-slate-600 mt-2.5 pt-2 border-t border-slate-100 font-medium">
+          ชาร์จไป <span id="statMonthSessions" class="font-bold text-slate-900 text-base">0</span> ครั้ง
+        </p>
+      </div>
+
+      <!-- Consumption Rate (THB/km) -->
+      <div class="clean-card rounded-2xl p-4 sm:p-5 relative overflow-hidden bg-white">
+        <div class="flex items-center justify-between text-slate-500">
+          <span class="text-sm font-semibold flex items-center gap-1.5 text-amber-700">
+            <i data-lucide="gauge" class="w-4 h-4 text-amber-600"></i> อัตราสิ้นเปลือง
+          </span>
+          <span class="text-xs px-2 py-0.5 rounded-md bg-amber-50 text-amber-700 font-medium">บาท/กม.</span>
+        </div>
+        <p class="text-3xl sm:text-4xl font-extrabold mt-2 text-amber-600 tracking-tight">
+          <span id="statAvgPerKm">-</span> <span class="text-sm text-slate-500 font-normal">฿/กม.</span>
+        </p>
+        <p class="text-sm text-slate-600 mt-2.5 pt-2 border-t border-slate-100" id="statDistanceSummary">
+          ระยะวิ่งรวม: <span class="text-slate-900 font-bold" id="statTotalKm">-</span> กม.
+        </p>
+      </div>
+
+      <!-- Savings comparison -->
+      <div class="clean-card rounded-2xl p-4 sm:p-5 relative overflow-hidden bg-white">
+        <div class="flex items-center justify-between text-slate-500">
+          <span class="text-sm font-semibold flex items-center gap-1.5 text-purple-700">
+            <i data-lucide="sparkles" class="w-4 h-4 text-purple-600"></i> เทียบรถน้ำมัน
+          </span>
+          <span class="text-xs px-2 py-0.5 rounded-md bg-purple-50 text-purple-700 font-medium">ประหยัด</span>
+        </div>
+        <p class="text-3xl sm:text-4xl font-extrabold mt-2 text-emerald-600 tracking-tight">
+          <span id="statSavingsRate">-</span>
+        </p>
+        <p class="text-sm text-slate-600 mt-2.5 pt-2 border-t border-slate-100" id="statSavingsSubtext">
+          ชาร์จทั้งหมด <span class="text-slate-900 font-bold" id="statTotalSessions">0</span> ครั้ง
+        </p>
+      </div>
+
+    </section>
+
+    <!-- Main Add Record Card -->
+    <section class="clean-card rounded-3xl p-5 sm:p-7 bg-white shadow-sm border border-slate-200">
+      
+      <!-- Card Header -->
+      <div class="flex items-center justify-between mb-5 pb-3 border-b border-slate-100">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-xl bg-cyan-50 text-cyan-700 border border-cyan-200 flex items-center justify-center">
+            <i data-lucide="plus-circle" class="w-6 h-6"></i>
+          </div>
+          <div>
+            <h2 id="formTitle" class="font-extrabold text-xl text-slate-900">บันทึกการชาร์จใหม่</h2>
+            <p class="text-sm text-slate-500">เลือกชาร์จบ้านหรือสถานีสาธารณะได้สะดวก ตัวหนังสือใหญ่กรอกง่าย</p>
+          </div>
+        </div>
+
+        <button id="btnCancelEdit" class="hidden text-sm text-rose-600 hover:text-rose-700 px-3.5 py-1.5 bg-rose-50 border border-rose-200 rounded-xl font-bold">
+          ยกเลิกแก้ไข
+        </button>
+      </div>
+
+      <form id="chargeForm" class="space-y-5">
+        <input type="hidden" id="editEntryId" value="">
+
+        <!-- Step 1: Charging Type Selector (Tabs: Home vs Public) -->
+        <div>
+          <label class="block text-sm font-bold text-slate-800 mb-2">
+            ⚡ เลือกประเภทการชาร์จ:
+          </label>
+          <div class="grid grid-cols-2 gap-3 p-1.5 bg-slate-100 rounded-2xl border border-slate-200">
+            <button type="button" id="tabTypeHome" class="py-3 px-4 rounded-xl font-bold text-base flex items-center justify-center gap-2 transition-all tab-active">
+              <i data-lucide="home" class="w-5 h-5"></i> 🏠 ชาร์จไฟบ้าน
+            </button>
+            <button type="button" id="tabTypePublic" class="py-3 px-4 rounded-xl font-bold text-base flex items-center justify-center gap-2 transition-all tab-inactive">
+              <i data-lucide="zap" class="w-5 h-5"></i> ⚡ สถานีสาธารณะ
+            </button>
+          </div>
+          <input type="hidden" id="inputChargingType" value="home">
+        </div>
+
+        <!-- Dynamic Section: Home Charging Options -->
+        <div id="homeChargingBox" class="p-4 sm:p-5 rounded-2xl bg-emerald-50/60 border border-emerald-200 space-y-4">
+          <div class="flex items-center justify-between flex-wrap gap-2">
+            <span class="text-base font-bold text-emerald-900 flex items-center gap-2">
+              <i data-lucide="home" class="w-5 h-5 text-emerald-600"></i> รายละเอียดการชาร์จไฟบ้าน (Home Charging)
+            </span>
+            <div class="flex gap-2">
+              <button type="button" id="btnModeKwh" class="px-3 py-1.5 text-xs font-bold rounded-lg bg-emerald-600 text-white shadow-xs">
+                คำนวณจากหน่วยไฟ (kWh)
+              </button>
+              <button type="button" id="btnModeDirect" class="px-3 py-1.5 text-xs font-bold rounded-lg bg-white text-slate-700 border border-slate-200">
+                ใส่ยอดเงินตรงๆ
+              </button>
+            </div>
+          </div>
+
+          <!-- Sub-mode: Calculate from kWh -->
+          <div id="homeKwhSubBox" class="space-y-3">
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <!-- kWh Units -->
+              <div>
+                <label for="inputKwh" class="block text-sm font-bold text-slate-800 mb-1.5">
+                  จำนวนหน่วยไฟที่ชาร์จ (kWh หรือ หน่วย)
+                </label>
+                <div class="relative">
+                  <input type="number" id="inputKwh" step="any" min="0" placeholder="เช่น 35 หรือ 42.5"
+                    class="w-full bg-white border border-emerald-300 rounded-xl px-4 py-3 text-lg font-bold text-slate-900 placeholder-slate-400 focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20">
+                  <span class="absolute right-4 top-3 text-sm text-emerald-700 font-bold">kWh</span>
+                </div>
+              </div>
+
+              <!-- Rate per unit -->
+              <div>
+                <label for="selectRatePreset" class="block text-sm font-bold text-slate-800 mb-1.5">
+                  อัตราค่าไฟบ้าน (บาท/หน่วย)
+                </label>
+                <select id="selectRatePreset"
+                  class="w-full bg-white border border-emerald-300 rounded-xl px-4 py-3 text-base font-bold text-slate-900 focus:outline-none focus:border-emerald-500">
+                  <option value="2.80">TOU Off-Peak (กลางคืน/วันหยุด) ~2.80 บาท</option>
+                  <option value="2.63">TOU Off-Peak PEA ~2.63 บาท</option>
+                  <option value="5.20">TOU On-Peak (กลางวัน 09:00-22:00) ~5.20 บาท</option>
+                  <option value="4.20">มิเตอร์ธรรมดา / ค่าไฟเฉลี่ย ~4.20 บาท</option>
+                  <option value="custom">กำหนดเอง...</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- Custom Rate input (hidden by default) -->
+            <div id="customRateBox" class="hidden">
+              <label for="inputCustomRate" class="block text-xs font-bold text-slate-700 mb-1">
+                ระบุอัตราค่าไฟที่ต้องการ (บาท/หน่วย):
+              </label>
+              <input type="number" id="inputCustomRate" step="0.01" min="0" placeholder="เช่น 3.10"
+                class="w-48 bg-white border border-slate-300 rounded-xl px-3 py-2 text-sm font-bold text-slate-900">
+            </div>
+
+            <!-- Live Calculation Hint -->
+            <div id="homeCalcResult" class="p-3 bg-white rounded-xl border border-emerald-200 text-sm flex items-center justify-between">
+              <span class="text-slate-600 font-medium">สูตร: <span id="homeCalcFormula">-</span></span>
+              <span class="font-extrabold text-base text-emerald-700">= <span id="homeCalcAmount">0.00</span> บาท</span>
+            </div>
+          </div>
+
+          <!-- Home Charger Label presets -->
+          <div>
+            <label class="block text-xs font-semibold text-slate-600 mb-1.5">
+              ชื่อจุดชาร์จบ้าน (เลือกหรือพิมพ์เอง):
+            </label>
+            <div class="flex flex-wrap gap-2">
+              <button type="button" class="btn-home-preset px-3 py-1.5 text-xs font-semibold bg-white hover:bg-emerald-100 text-slate-800 border border-emerald-200 rounded-lg" data-name="Wallbox ที่บ้าน">🏠 Wallbox ที่บ้าน</button>
+              <button type="button" class="btn-home-preset px-3 py-1.5 text-xs font-semibold bg-white hover:bg-emerald-100 text-slate-800 border border-emerald-200 rounded-lg" data-name="ไฟบ้าน TOU (Off-Peak)">🌙 ไฟบ้าน TOU (Off-Peak)</button>
+              <button type="button" class="btn-home-preset px-3 py-1.5 text-xs font-semibold bg-white hover:bg-emerald-100 text-slate-800 border border-emerald-200 rounded-lg" data-name="สายชาร์จฉุกเฉิน (Portable)">🔌 สายชาร์จพกพา (Emergency)</button>
+              <button type="button" class="btn-home-preset px-3 py-1.5 text-xs font-semibold bg-white hover:bg-emerald-100 text-slate-800 border border-emerald-200 rounded-lg" data-name="บ้านต่างจังหวัด">🏡 บ้านต่างจังหวัด</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Dynamic Section: Public Station Options -->
+        <div id="publicChargingBox" class="hidden p-4 sm:p-5 rounded-2xl bg-cyan-50/60 border border-cyan-200 space-y-3">
+          <label for="inputStation" class="block text-sm font-bold text-slate-800 flex items-center justify-between">
+            <span class="flex items-center gap-1.5 text-cyan-800">
+              <i data-lucide="map-pin" class="w-4 h-4 text-cyan-600"></i> ชื่อสถานีชาร์จสาธารณะ *
+            </span>
+          </label>
+          <div class="relative">
+            <input type="text" id="inputStation" list="stationList" placeholder="พิมพ์ชื่อสถานี หรือแตะปุ่มด้านล่าง"
+              class="w-full bg-white border border-cyan-300 rounded-xl px-4 py-3 text-base font-semibold text-slate-900 placeholder-slate-400 focus:outline-none focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/20">
+            <datalist id="stationList">
+              <option value="PEA Volta"></option>
+              <option value="PTT EV Station PluZ"></option>
+              <option value="EleXA (EGAT)"></option>
+              <option value="EA Anywhere"></option>
+              <option value="Evolt"></option>
+              <option value="MEA EV"></option>
+              <option value="Altervim"></option>
+              <option value="Tesla Supercharger"></option>
+              <option value="Giga Charger"></option>
+              <option value="AION Super Charge"></option>
+            </datalist>
+          </div>
+
+          <!-- Quick Station Chips -->
+          <div class="flex flex-wrap gap-2 pt-1">
+            <button type="button" class="btn-quick-station px-3 py-1.5 text-xs font-bold bg-white hover:bg-cyan-100 text-slate-800 rounded-lg border border-cyan-200" data-station="PEA Volta">PEA Volta</button>
+            <button type="button" class="btn-quick-station px-3 py-1.5 text-xs font-bold bg-white hover:bg-cyan-100 text-slate-800 rounded-lg border border-cyan-200" data-station="PTT EV Station PluZ">PTT EV Station</button>
+            <button type="button" class="btn-quick-station px-3 py-1.5 text-xs font-bold bg-white hover:bg-cyan-100 text-slate-800 rounded-lg border border-cyan-200" data-station="EleXA (EGAT)">EleXA</button>
+            <button type="button" class="btn-quick-station px-3 py-1.5 text-xs font-bold bg-white hover:bg-cyan-100 text-slate-800 rounded-lg border border-cyan-200" data-station="EA Anywhere">EA Anywhere</button>
+            <button type="button" class="btn-quick-station px-3 py-1.5 text-xs font-bold bg-white hover:bg-cyan-100 text-slate-800 rounded-lg border border-cyan-200" data-station="Evolt">Evolt</button>
+            <button type="button" class="btn-quick-station px-3 py-1.5 text-xs font-bold bg-white hover:bg-cyan-100 text-slate-800 rounded-lg border border-cyan-200" data-station="Tesla Supercharger">Tesla</button>
+          </div>
+        </div>
+
+        <!-- Row 2: Final Amount & Quick Amount Buttons -->
+        <div>
+          <label for="inputAmount" class="block text-sm font-bold text-slate-800 mb-1.5 flex items-center justify-between">
+            <span class="flex items-center gap-1.5 text-cyan-800">
+              <i data-lucide="coins" class="w-4 h-4 text-cyan-600"></i> ยอดเงินค่าชาร์จทั้งหมด (บาท) *
+            </span>
+            <span class="text-xs text-rose-500 font-bold">จำเป็น</span>
+          </label>
+          <div class="relative">
+            <input type="number" id="inputAmount" step="any" min="0" placeholder="0.00" required
+              class="w-full bg-slate-50 border-2 border-slate-300 rounded-2xl px-4 py-3.5 text-2xl font-extrabold text-slate-900 placeholder-slate-400 focus:bg-white focus:outline-none focus:border-cyan-500 focus:ring-4 focus:ring-cyan-500/10 transition-all">
+            <span class="absolute right-4 top-3 text-xl text-slate-400 font-extrabold">฿</span>
+          </div>
+
+          <!-- Quick Amount Chips -->
+          <div class="flex flex-wrap gap-2 mt-2">
+            <button type="button" class="btn-quick-amount px-3 py-1.5 text-sm font-bold bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl border border-slate-200 transition-colors" data-val="100">+100</button>
+            <button type="button" class="btn-quick-amount px-3 py-1.5 text-sm font-bold bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl border border-slate-200 transition-colors" data-val="200">+200</button>
+            <button type="button" class="btn-quick-amount px-3 py-1.5 text-sm font-bold bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl border border-slate-200 transition-colors" data-val="300">+300</button>
+            <button type="button" class="btn-quick-amount px-3 py-1.5 text-sm font-bold bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl border border-slate-200 transition-colors" data-val="500">+500</button>
+            <button type="button" class="btn-quick-amount px-3 py-1.5 text-sm font-bold bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl border border-slate-200 transition-colors" data-val="1000">+1,000</button>
+          </div>
+        </div>
+
+        <!-- Row 3: Date & Time + Odometer -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <!-- Date & Time -->
+          <div>
+            <label for="inputDateTime" class="block text-sm font-bold text-slate-800 mb-1.5 flex items-center justify-between">
+              <span class="flex items-center gap-1.5 text-cyan-800">
+                <i data-lucide="clock" class="w-4 h-4 text-cyan-600"></i> วันที่และเวลาชาร์จ *
+              </span>
+              <button type="button" id="btnSetNow" class="text-xs text-cyan-600 hover:underline font-bold">
+                ใช้วันเวลานี้
+              </button>
+            </label>
+            <input type="datetime-local" id="inputDateTime" required
+              class="w-full bg-slate-50 border border-slate-300 rounded-xl px-4 py-3 text-base font-semibold text-slate-900 focus:bg-white focus:outline-none focus:border-cyan-500">
+          </div>
+
+          <!-- Odometer -->
+          <div>
+            <label for="inputOdometer" class="block text-sm font-bold text-slate-800 mb-1.5 flex items-center justify-between">
+              <span class="flex items-center gap-1.5 text-amber-800">
+                <i data-lucide="gauge" class="w-4 h-4 text-amber-600"></i> เลขไมล์สะสมรถ (km)
+              </span>
+              <span class="text-xs text-slate-500 font-normal bg-slate-100 px-2 py-0.5 rounded">ไม่บังคับใส่</span>
+            </label>
+            <div class="relative">
+              <input type="number" id="inputOdometer" placeholder="เช่น 8500 (เว้นว่างได้)"
+                class="w-full bg-slate-50 border border-slate-300 rounded-xl px-4 py-3 text-base font-semibold text-slate-900 placeholder-slate-400 focus:bg-white focus:outline-none focus:border-cyan-500">
+              <span class="absolute right-4 top-3 text-sm text-slate-400 font-bold">km</span>
+            </div>
+            <p class="text-xs text-slate-500 mt-1">
+              💡 <em>ใส่เลขไมล์ต่อเนื่อง ระบบจะคิด <strong>บาท/กม.</strong> ให้อัตโนมัติ</em>
+            </p>
+          </div>
+        </div>
+
+        <!-- Submit Button (Large Touch Target) -->
+        <div class="pt-2">
+          <button type="submit" id="btnSubmitForm"
+            class="w-full min-h-[54px] py-4 px-6 rounded-2xl font-bold text-lg text-white bg-gradient-to-r from-cyan-600 via-teal-600 to-emerald-600 hover:from-cyan-700 hover:to-emerald-700 transition-all shadow-md shadow-cyan-600/25 flex items-center justify-center gap-2 active:scale-[0.99]">
+            <i data-lucide="save" class="w-5 h-5"></i>
+            <span id="btnSubmitText">บันทึกค่าชาร์จ</span>
+          </button>
+        </div>
+
+      </form>
+    </section>
+
+    <!-- Analytics Charts Section -->
+    <section class="clean-card rounded-3xl p-5 sm:p-6 bg-white shadow-sm border border-slate-200">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+        <div class="flex items-center gap-2">
+          <div class="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-600 border border-emerald-100 flex items-center justify-center">
+            <i data-lucide="bar-chart-3" class="w-5 h-5"></i>
+          </div>
+          <div>
+            <h2 class="font-bold text-lg text-slate-900">กราฟสรุปค่าใช้จ่าย</h2>
+            <p class="text-xs text-slate-500">ดูแนวโน้มรายเดือน สถานี และเปรียบเทียบชาร์จบ้าน vs สาธารณะ</p>
+          </div>
+        </div>
+        
+        <div class="flex gap-1 bg-slate-100 p-1.5 rounded-xl border border-slate-200 text-xs sm:text-sm font-semibold">
+          <button type="button" class="tab-chart-btn px-3 py-1.5 rounded-lg active bg-white text-cyan-700 shadow-xs" data-view="monthly">รายเดือน</button>
+          <button type="button" class="tab-chart-btn px-3 py-1.5 rounded-lg text-slate-600 hover:text-slate-900" data-view="home_vs_public">🏠 บ้าน vs ⚡ สถานี</button>
+          <button type="button" class="tab-chart-btn px-3 py-1.5 rounded-lg text-slate-600 hover:text-slate-900" data-view="stations">ตามสถานี</button>
+        </div>
+      </div>
+
+      <div class="relative h-64 sm:h-72 w-full">
+        <canvas id="expenseChart"></canvas>
+      </div>
+    </section>
+
+    <!-- History List Section (Large Font Card) -->
+    <section class="clean-card rounded-3xl p-5 sm:p-6 bg-white shadow-sm border border-slate-200">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+        <div class="flex items-center gap-2">
+          <div class="w-8 h-8 rounded-xl bg-purple-50 text-purple-600 border border-purple-100 flex items-center justify-center">
+            <i data-lucide="history" class="w-5 h-5"></i>
+          </div>
+          <div>
+            <div class="flex items-center gap-2">
+              <h2 class="font-bold text-lg text-slate-900">ประวัติการชาร์จ</h2>
+              <span id="historyBadgeCount" class="text-xs px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-700 border border-slate-200 font-bold">0 รายการ</span>
+            </div>
+            <p class="text-xs text-slate-500">แตะที่รายการเพื่อดูรายละเอียดหรือแก้ไข</p>
+          </div>
+        </div>
+
+        <!-- Filter tabs & Search -->
+        <div class="flex flex-wrap items-center gap-2">
+          <!-- Filter type pills -->
+          <div class="flex bg-slate-100 p-1 rounded-xl border border-slate-200 text-xs font-bold">
+            <button type="button" class="filter-type-btn px-3 py-1.5 rounded-lg active bg-white text-cyan-700 shadow-xs" data-filter="all">ทั้งหมด</button>
+            <button type="button" class="filter-type-btn px-3 py-1.5 rounded-lg text-slate-600" data-filter="home">🏠 ชาร์จบ้าน</button>
+            <button type="button" class="filter-type-btn px-3 py-1.5 rounded-lg text-slate-600" data-filter="public">⚡ สถานี</button>
+          </div>
+
+          <select id="selectMonthFilter" class="bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 text-xs sm:text-sm font-semibold text-slate-800 focus:outline-none focus:border-cyan-500">
+            <option value="all">ทุกเดือน</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Search input -->
+      <div class="relative mb-4">
+        <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-3.5 top-3"></i>
+        <input type="text" id="inputSearch" placeholder="ค้นหาตามชื่อสถานี, ชาร์จบ้าน, หรือจำนวนเงิน..."
+          class="w-full bg-slate-50 border border-slate-200 rounded-xl pl-10 pr-4 py-2.5 text-sm text-slate-900 placeholder-slate-400 focus:bg-white focus:outline-none focus:border-cyan-500">
+      </div>
+
+      <!-- History List Container -->
+      <div id="historyListContainer" class="space-y-3">
+        <!-- Rendered by JS -->
+      </div>
+
+      <!-- Empty State -->
+      <div id="emptyState" class="hidden py-12 text-center">
+        <div class="w-16 h-16 mx-auto mb-3 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-400">
+          <i data-lucide="inbox" class="w-8 h-8"></i>
+        </div>
+        <p class="text-base font-bold text-slate-700">ยังไม่มีข้อมูลการชาร์จ</p>
+        <p class="text-sm text-slate-500 mt-1">เริ่มต้นบันทึกรายการแรกจากฟอร์มด้านบนได้เลยครับ</p>
+      </div>
+
+    </section>
+
+  </main>
+
+  <!-- Mobile Install Instructions Modal -->
+  <div id="howToModal" class="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl max-w-lg w-full p-6 border border-slate-200 shadow-2xl relative max-h-[90vh] overflow-y-auto">
+      <button id="btnCloseHowToModal" class="absolute right-4 top-4 text-slate-400 hover:text-slate-700 p-2 rounded-xl">
+        <i data-lucide="x" class="w-6 h-6"></i>
+      </button>
+
+      <div class="flex items-center gap-3 mb-4">
+        <div class="w-12 h-12 rounded-2xl bg-cyan-50 text-cyan-700 border border-cyan-200 flex items-center justify-center">
+          <i data-lucide="smartphone" class="w-6 h-6"></i>
+        </div>
+        <div>
+          <h3 class="font-extrabold text-lg text-slate-900">วิธีติดตั้งแอป AION EV ลงในมือถือ</h3>
+          <p class="text-sm text-slate-500">ใช้งานได้เหมือนแอปจริง เปิดเต็มจอ ไม่ต้องโหลดผ่านสโตร์</p>
+        </div>
+      </div>
+
+      <div class="space-y-4 text-sm text-slate-700">
+        <!-- iOS Safari -->
+        <div class="p-4 rounded-2xl bg-slate-50 border border-slate-200">
+          <p class="font-bold text-base text-slate-900 flex items-center gap-2 mb-2">
+            🍎 สำหรับ iPhone / iPad (Safari):
+          </p>
+          <ol class="list-decimal list-inside space-y-1.5 text-sm leading-relaxed">
+            <li>เปิดหน้านี้ด้วยเบราว์เซอร์ <strong>Safari</strong></li>
+            <li>แตะปุ่ม <strong>"แชร์" (Share)</strong> <i data-lucide="share" class="w-4 h-4 inline text-cyan-600"></i> แถบด้านล่างของจอ</li>
+            <li>เลื่อนลงแล้วเลือก <strong>"เพิ่มไปยังหน้าจอโฮม" (Add to Home Screen)</strong></li>
+            <li>กด <strong>"เพิ่ม" (Add)</strong> มุมขวาบน จะได้ไอคอนรูปรถสีขาวบนหน้าจอมือถือทันที!</li>
+          </ol>
+        </div>
+
+        <!-- Android Chrome -->
+        <div class="p-4 rounded-2xl bg-slate-50 border border-slate-200">
+          <p class="font-bold text-base text-slate-900 flex items-center gap-2 mb-2">
+            🤖 สำหรับ Android (Chrome):
+          </p>
+          <ol class="list-decimal list-inside space-y-1.5 text-sm leading-relaxed">
+            <li>แตะปุ่ม <strong>"ติดตั้งแอป"</strong> ในแถบด้านบน หรือแตะเมนูจุด 3 จุด (⋮) มุมขวาบนของ Chrome</li>
+            <li>เลือก <strong>"ติดตั้งแอปพลิเคชัน" (Install app)</strong> หรือ <strong>"เพิ่มลงในหน้าจอหลัก"</strong></li>
+            <li>กด <strong>"ติดตั้ง"</strong> จะมีไอคอน AION EV ปรากฏบนหน้าจอหลักของคุณ</li>
+          </ol>
+        </div>
+      </div>
+
+      <div class="mt-5 pt-3 border-t border-slate-100 flex justify-end">
+        <button id="btnGotItHowTo" class="px-5 py-2.5 rounded-xl bg-cyan-600 hover:bg-cyan-700 text-white font-bold text-sm">
+          เข้าใจแล้ว
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Settings / Backup Modal -->
+  <div id="settingsModal" class="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl max-w-md w-full p-6 border border-slate-200 shadow-2xl relative">
+      <button id="btnCloseModal" class="absolute right-4 top-4 text-slate-400 hover:text-slate-700 p-2 rounded-xl">
+        <i data-lucide="x" class="w-6 h-6"></i>
+      </button>
+
+      <div class="flex items-center gap-3 mb-4">
+        <div class="w-12 h-12 rounded-2xl bg-cyan-50 text-cyan-700 border border-cyan-200 flex items-center justify-center">
+          <i data-lucide="database" class="w-6 h-6"></i>
+        </div>
+        <div>
+          <h3 class="font-extrabold text-lg text-slate-900">จัดการข้อมูล (Backup & Restore)</h3>
+          <p class="text-sm text-slate-500">สำรองและกู้คืนข้อมูลค่าชาร์จ AION EV</p>
+        </div>
+      </div>
+
+      <div class="space-y-3 pt-2">
+        <!-- Export CSV -->
+        <button id="modalBtnExportCSV" class="w-full py-3 px-4 rounded-xl bg-slate-50 hover:bg-slate-100 text-slate-800 text-base font-semibold border border-slate-200 flex items-center justify-between transition-colors">
+          <span class="flex items-center gap-2.5">
+            <i data-lucide="file-spreadsheet" class="w-5 h-5 text-emerald-600"></i> ส่งออกเป็นไฟล์ CSV (เปิดใน Excel ได้)
+          </span>
+          <i data-lucide="download" class="w-4 h-4 text-slate-400"></i>
+        </button>
+
+        <!-- Export JSON -->
+        <button id="modalBtnExportJSON" class="w-full py-3 px-4 rounded-xl bg-slate-50 hover:bg-slate-100 text-slate-800 text-base font-semibold border border-slate-200 flex items-center justify-between transition-colors">
+          <span class="flex items-center gap-2.5">
+            <i data-lucide="archive" class="w-5 h-5 text-cyan-600"></i> สำรองข้อมูลทั้งหมด (Backup JSON)
+          </span>
+          <i data-lucide="download" class="w-4 h-4 text-slate-400"></i>
+        </button>
+
+        <!-- Import JSON -->
+        <div>
+          <input type="file" id="fileImportJSON" accept=".json" class="hidden">
+          <button id="modalBtnImportJSON" class="w-full py-3 px-4 rounded-xl bg-slate-50 hover:bg-slate-100 text-slate-800 text-base font-semibold border border-slate-200 flex items-center justify-between transition-colors">
+            <span class="flex items-center gap-2.5">
+              <i data-lucide="upload" class="w-5 h-5 text-amber-600"></i> นำเข้าข้อมูลสำรอง (Restore JSON)
+            </span>
+            <i data-lucide="folder-open" class="w-4 h-4 text-slate-400"></i>
+          </button>
+        </div>
+
+        <!-- Add Sample Data -->
+        <button id="btnAddSampleData" class="w-full py-3 px-4 rounded-xl bg-cyan-50 hover:bg-cyan-100 text-cyan-900 text-base font-semibold border border-cyan-200 flex items-center justify-between transition-colors">
+          <span class="flex items-center gap-2.5">
+            <i data-lucide="sparkles" class="w-5 h-5 text-cyan-600"></i> โหลดข้อมูลตัวอย่าง AION EV (บ้าน & สถานี)
+          </span>
+          <i data-lucide="plus" class="w-5 h-5 text-cyan-600"></i>
+        </button>
+
+        <!-- Clear All -->
+        <button id="btnClearAll" class="w-full py-3 px-4 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 text-base font-semibold border border-rose-200 flex items-center justify-between transition-colors">
+          <span class="flex items-center gap-2.5">
+            <i data-lucide="trash-2" class="w-5 h-5 text-rose-600"></i> ล้างข้อมูลทั้งหมด
+          </span>
+          <i data-lucide="alert-triangle" class="w-5 h-5 text-rose-600"></i>
+        </button>
+      </div>
+
+      <div class="mt-6 pt-4 border-t border-slate-100 text-center text-xs text-slate-500">
+        AION EV Charging Tracker • ข้อมูลบันทึกในเครื่องปลอดภัย 100%
+      </div>
+    </div>
+  </div>
+
+  <!-- Notification Toast -->
+  <div id="toast" class="fixed bottom-6 right-6 z-50 transform translate-y-28 opacity-0 transition-all duration-300 pointer-events-none flex items-center gap-3 px-5 py-3.5 rounded-2xl bg-slate-900 text-white shadow-2xl">
+    <i data-lucide="check-circle" id="toastIcon" class="w-6 h-6 text-cyan-400"></i>
+    <span id="toastMsg" class="text-base font-bold">บันทึกสำเร็จ</span>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
